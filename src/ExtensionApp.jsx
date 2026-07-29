@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "./components/Navbar";
-import Hero from "./components/Hero";
-import Features from "./components/Features";
-import InstallGuide from "./components/InstallGuide";
-import Footer from "./components/Footer";
+import Background from "./components/Background";
+import Foreground from "./components/Foreground";
 import { FaTimes } from "react-icons/fa";
 
 const PRESET_CARDS = [
@@ -30,7 +27,7 @@ const PRESET_CARDS = [
   },
 ];
 
-const App = () => {
+const ExtensionApp = () => {
   // Load cards from localStorage
   const [cards, setCards] = useState(() => {
     try {
@@ -101,31 +98,22 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-blue-500 selection:text-white">
-      {/* Top Navbar */}
-      <Navbar />
-
-      {/* Hero Section with Interactive Live Demo */}
-      <Hero
+    <div
+      onDoubleClick={() => setShowForm(true)}
+      className="fixed inset-0 w-screen h-screen overflow-hidden bg-black select-none z-[999]"
+    >
+      <Background />
+      <Foreground
         cards={cards}
         toggleStatus={toggleStatus}
         deleteCard={deleteCard}
         onOpenForm={() => setShowForm(true)}
       />
 
-      {/* Features Grid */}
-      <Features />
-
-      {/* How to Install Walkthrough */}
-      <InstallGuide />
-
-      {/* Footer */}
-      <Footer />
-
       {/* Task Creation Form Modal Component */}
       {showForm && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-[100] p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-[1000] p-4"
           onDoubleClick={(e) => e.stopPropagation()}
         >
           <div className="bg-zinc-900 border border-zinc-800 text-white p-6 rounded-2xl shadow-2xl space-y-5 w-full max-w-md animate-in fade-in zoom-in duration-200">
@@ -214,4 +202,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default ExtensionApp;

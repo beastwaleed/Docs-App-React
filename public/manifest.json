@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Transform your new tab with a Google search bar and interactive draggable task cards.",
   "chrome_url_overrides": {
-    "newtab": "index.html"
+    "newtab": "extension.html"
   },
   "permissions": ["storage"],
   "host_permissions": [
