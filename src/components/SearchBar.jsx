@@ -55,7 +55,7 @@ const SearchBar = ({ onOpenForm }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch real-time Google search suggestions using JSONP (bypasses CORS in all browser contexts)
+  // Fetch real-time Google search suggestions (Native fetch for Chrome Extension + JSONP fallback for Web)
   useEffect(() => {
     const trimmed = query.trim();
     if (!trimmed) {
@@ -64,36 +64,63 @@ const SearchBar = ({ onOpenForm }) => {
       return;
     }
 
-    const timer = setTimeout(() => {
-      const callbackName =
-        "googleSuggestCallback_" + Math.random().toString(36).substring(7);
-
-      const cleanup = () => {
-        delete window[callbackName];
-        const oldScript = document.getElementById(callbackName);
-        if (oldScript) oldScript.remove();
-      };
-
-      window[callbackName] = (data) => {
-        if (data && Array.isArray(data[1])) {
-          // Extract text suggestions array
-          const results = data[1].map((item) =>
-            Array.isArray(item) ? item[0] : item
-          );
-          setSuggestions(results.slice(0, 8)); // Top 8 suggestions
-          setShowSuggestions(true);
-          setSelectedIndex(-1);
+    const timer = setTimeout(async () => {
+      // 1. Try native fetch (Primary for Chrome Extensions with host_permissions)
+      try {
+        const response = await fetch(
+          `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(
+            trimmed
+          )}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && Array.isArray(data[1])) {
+            const results = data[1].map((item) =>
+              Array.isArray(item) ? item[0] : item
+            );
+            setSuggestions(results.slice(0, 8));
+            setShowSuggestions(true);
+            setSelectedIndex(-1);
+            return; // Fetch succeeded, exit timer
+          }
         }
-        cleanup();
-      };
+      } catch (err) {
+        // Silent catch: if fetch fails due to web CORS, fall through to JSONP below
+      }
 
-      const script = document.createElement("script");
-      script.id = callbackName;
-      script.src = `https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(
-        trimmed
-      )}&jsonp=${callbackName}`;
-      script.onerror = cleanup;
-      document.body.appendChild(script);
+      // 2. JSONP fallback for Web / Localhost
+      try {
+        const callbackName =
+          "googleSuggestCallback_" + Math.random().toString(36).substring(7);
+
+        const cleanup = () => {
+          delete window[callbackName];
+          const oldScript = document.getElementById(callbackName);
+          if (oldScript) oldScript.remove();
+        };
+
+        window[callbackName] = (data) => {
+          if (data && Array.isArray(data[1])) {
+            const results = data[1].map((item) =>
+              Array.isArray(item) ? item[0] : item
+            );
+            setSuggestions(results.slice(0, 8));
+            setShowSuggestions(true);
+            setSelectedIndex(-1);
+          }
+          cleanup();
+        };
+
+        const script = document.createElement("script");
+        script.id = callbackName;
+        script.src = `https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(
+          trimmed
+        )}&jsonp=${callbackName}`;
+        script.onerror = cleanup;
+        document.body.appendChild(script);
+      } catch (e) {
+        console.warn("Could not fetch search suggestions", e);
+      }
     }, 150);
 
     return () => clearTimeout(timer);
