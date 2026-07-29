@@ -33,17 +33,23 @@ const PRESET_CARDS = [
 ];
 
 const App = () => {
-  // Detect if running inside a browser extension (chrome-extension://, moz-extension://) or extension mode
-  const [isExtension, setIsExtension] = useState(false);
-
-  useEffect(() => {
+  // Synchronously detect if running as Browser Extension (chrome-extension://, moz-extension://)
+  const [isExtension] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const href = window.location.href;
     const protocol = window.location.protocol;
-    const isExt =
-      protocol.includes("-extension") ||
-      window.location.search.includes("mode=extension") ||
-      (typeof chrome !== "undefined" && chrome.runtime && !!chrome.runtime.id);
-    setIsExtension(isExt);
-  }, []);
+    const isExtProtocol =
+      protocol.startsWith("chrome-extension") ||
+      protocol.startsWith("moz-extension") ||
+      protocol.startsWith("chrome") ||
+      href.includes("chrome-extension://") ||
+      href.includes("moz-extension://");
+    const isModeParam = window.location.search.includes("mode=extension");
+    const hasChromeRuntime =
+      typeof chrome !== "undefined" && !!chrome?.runtime?.id;
+
+    return isExtProtocol || isModeParam || hasChromeRuntime;
+  });
 
   // Load cards from localStorage
   const [cards, setCards] = useState(() => {
@@ -210,7 +216,7 @@ const App = () => {
     return (
       <div
         onDoubleClick={() => setShowForm(true)}
-        className="relative w-screen h-screen overflow-hidden bg-black select-none"
+        className="fixed inset-0 w-screen h-screen overflow-hidden bg-black select-none z-[999]"
       >
         <Background />
         <Foreground
