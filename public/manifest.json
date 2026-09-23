@@ -1,13 +1,27 @@
 {
   "manifest_version": 3,
-  "name": "Docs Dashboard - New Tab Task Board",
-  "version": "1.0.0",
-  "description": "Transform your new tab with a Google search bar and interactive draggable task cards.",
+  "name": "TaskBoard Tab",
+  "version": "2.0.0",
+  "description": "Transform your browser New Tab into a productive workspace with Google search, draggable tasks, and local storage sync.",
   "chrome_url_overrides": {
     "newtab": "extension.html"
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://suggestqueries.google.com/*"
-  ]
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "icons": {
+    "16": "vite.svg",
+    "48": "vite.svg",
+    "128": "vite.svg"
+  }
 }

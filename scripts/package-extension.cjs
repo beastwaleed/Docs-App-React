@@ -41,6 +41,17 @@ if (fs.existsSync(assetsDir)) {
   });
 }
 
+// 4.1 Copy content script files for cross-tab timer
+if (fs.existsSync(path.join(distDir, "content.js"))) {
+  fs.copyFileSync(path.join(distDir, "content.js"), path.join(stagingDir, "content.js"));
+}
+if (fs.existsSync(path.join(distDir, "content.css"))) {
+  fs.copyFileSync(path.join(distDir, "content.css"), path.join(stagingDir, "content.css"));
+}
+if (fs.existsSync(path.join(distDir, "vite.svg"))) {
+  fs.copyFileSync(path.join(distDir, "vite.svg"), path.join(stagingDir, "vite.svg"));
+}
+
 // 5. Compress to public/docs-app-extension.zip
 if (fs.existsSync(zipPath)) {
   fs.unlinkSync(zipPath);

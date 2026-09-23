@@ -10,6 +10,17 @@ import SubtaskForm from "./components/SubtaskForm";
 import FocusTimer from "./components/FocusTimer";
 import ThemeSelector from "./components/ThemeSelector";
 
+// Helper to save to both localStorage and chrome.storage.local
+const saveState = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {}
+  
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.set({ [key]: value });
+  }
+};
+
 // Completion sound (short pleasant chime via Web Audio API)
 const playCompletionSound = () => {
   try {
@@ -50,10 +61,10 @@ const ExtensionApp = () => {
   const [editingShortTask, setEditingShortTask] = useState(null);
 
   useEffect(() => {
-    try { localStorage.setItem("taskboard_short_tasks", JSON.stringify(shortTasks)); } catch (e) {}
+    saveState("taskboard_short_tasks", shortTasks);
   }, [shortTasks]);
 
-  // Sync short tasks across tabs
+  // Sync short tasks across tabs (localStorage & chrome.storage)
   useEffect(() => {
     const handleStorage = (e) => {
       if (e.key === "taskboard_short_tasks" && e.newValue) {
@@ -61,7 +72,22 @@ const ExtensionApp = () => {
       }
     };
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    
+    const handleChromeStorage = (changes, namespace) => {
+      if (namespace === "local" && changes.taskboard_short_tasks) {
+        setShortTasks(changes.taskboard_short_tasks.newValue || []);
+      }
+    };
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.onChanged.addListener(handleChromeStorage);
+    }
+    
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.onChanged.removeListener(handleChromeStorage);
+      }
+    };
   }, []);
 
   // ─── Long-Term Goals State ─────────────────────────────────
@@ -80,7 +106,7 @@ const ExtensionApp = () => {
   const [subtaskGoalId, setSubtaskGoalId] = useState(null);
 
   useEffect(() => {
-    try { localStorage.setItem("taskboard_goals", JSON.stringify(goals)); } catch (e) {}
+    saveState("taskboard_goals", goals);
   }, [goals]);
 
   // Sync goals across tabs
@@ -91,7 +117,22 @@ const ExtensionApp = () => {
       }
     };
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+
+    const handleChromeStorage = (changes, namespace) => {
+      if (namespace === "local" && changes.taskboard_goals) {
+        setGoals(changes.taskboard_goals.newValue || []);
+      }
+    };
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.onChanged.addListener(handleChromeStorage);
+    }
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.onChanged.removeListener(handleChromeStorage);
+      }
+    };
   }, []);
 
   // ─── Focus Mode State ──────────────────────────────────────
@@ -114,7 +155,7 @@ const ExtensionApp = () => {
   });
 
   useEffect(() => {
-    try { localStorage.setItem("taskboard_focus_state", JSON.stringify(focusState)); } catch (e) {}
+    saveState("taskboard_focus_state", focusState);
   }, [focusState]);
 
   // Sync focus state across tabs
@@ -125,7 +166,24 @@ const ExtensionApp = () => {
       }
     };
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+
+    const handleChromeStorage = (changes, namespace) => {
+      if (namespace === "local" && changes.taskboard_focus_state) {
+        setFocusState(changes.taskboard_focus_state.newValue || {
+          isActive: false, taskId: null, taskTitle: "", taskType: null, goalId: null, startedAt: null, pausedAt: null, totalPausedMs: 0, estimatedTime: null
+        });
+      }
+    };
+    if (typeof chrome !== "undefined" && chrome.storage) {
+      chrome.storage.onChanged.addListener(handleChromeStorage);
+    }
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.onChanged.removeListener(handleChromeStorage);
+      }
+    };
   }, []);
 
   // ─── Short Task Handlers ──────────────────────────────────
