@@ -48,8 +48,8 @@ if (fs.existsSync(path.join(distDir, "content.js"))) {
 if (fs.existsSync(path.join(distDir, "content.css"))) {
   fs.copyFileSync(path.join(distDir, "content.css"), path.join(stagingDir, "content.css"));
 }
-if (fs.existsSync(path.join(distDir, "icon.png"))) {
-  fs.copyFileSync(path.join(distDir, "icon.png"), path.join(stagingDir, "icon.png"));
+if (fs.existsSync(path.join(distDir, "icon.svg"))) {
+  fs.copyFileSync(path.join(distDir, "icon.svg"), path.join(stagingDir, "icon.svg"));
 }
 
 // 5. Compress to public/docs-app-extension.zip
