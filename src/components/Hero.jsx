@@ -1,9 +1,6 @@
 import React from "react";
 import { FaDownload, FaGithub, FaChrome, FaExpand } from "react-icons/fa";
-import Background from "./Background";
-import Foreground from "./Foreground";
-
-const Hero = ({ cards, toggleStatus, deleteCard, onOpenForm }) => {
+const Hero = () => {
   return (
     <section className="pt-12 pb-20 px-6 max-w-7xl mx-auto space-y-12">
       {/* Title & Headline Section */}
@@ -21,7 +18,7 @@ const Hero = ({ cards, toggleStatus, deleteCard, onOpenForm }) => {
         </h1>
 
         <p className="text-base sm:text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-          Google Search with real-time autocomplete suggestions, draggable sticky note task cards, and local storage persistence—right inside your new tab.
+          Supercharge your workflow with daily tasks, focus timers, long-term goals, and custom themes—all beautifully integrated right into your new tab.
         </p>
 
         {/* CTA Buttons */}
@@ -51,7 +48,7 @@ const Hero = ({ cards, toggleStatus, deleteCard, onOpenForm }) => {
       <div id="demo" className="w-full pt-4">
         <div className="text-center mb-4 flex items-center justify-center space-x-2 text-zinc-400 text-xs font-semibold uppercase tracking-wider">
           <FaExpand className="text-blue-400" />
-          <span>Interactive Live Demo — Try dragging cards & searching below</span>
+          <span>Interactive Live Demo — Try it out below</span>
         </div>
 
         {/* Browser Mockup Window Frame */}
@@ -77,16 +74,12 @@ const Hero = ({ cards, toggleStatus, deleteCard, onOpenForm }) => {
           </div>
 
           {/* Embedded Interactive Extension Canvas */}
-          <div
-            className="relative w-full flex-1 overflow-hidden"
-            onDoubleClick={onOpenForm}
-          >
-            <Background />
-            <Foreground
-              cards={cards}
-              toggleStatus={toggleStatus}
-              deleteCard={deleteCard}
-              onOpenForm={onOpenForm}
+          <div className="relative w-full flex-1 overflow-hidden">
+            <iframe
+              src="/extension.html"
+              title="TaskBoard Tab Live Demo"
+              className="w-full h-full border-none outline-none"
+              sandbox="allow-scripts allow-same-origin"
             />
           </div>
         </div>
