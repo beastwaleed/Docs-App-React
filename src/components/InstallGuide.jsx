@@ -34,15 +34,15 @@ const STEPS = [
 
 const InstallGuide = () => {
   return (
-    <section id="install" className="py-20 px-6 max-w-7xl mx-auto border-t border-zinc-800/80">
+    <section id="install" className="py-20 px-6 max-w-7xl mx-auto border-t border-zinc-200/80">
       <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-        <h2 className="text-xs uppercase tracking-widest font-extrabold text-blue-400">
+        <h2 className="text-xs uppercase tracking-widest font-extrabold text-zinc-500">
           Easy Setup
         </h2>
-        <h3 className="text-3xl md:text-5xl font-extrabold text-white tracking-tight">
+        <h3 className="text-3xl md:text-5xl font-extrabold text-zinc-900 tracking-tight">
           How to Install in 30 Seconds
         </h3>
-        <p className="text-zinc-400 text-base md:text-lg">
+        <p className="text-zinc-500 text-base md:text-lg">
           No Chrome Web Store approval needed. Install unpacked in a few quick clicks.
         </p>
       </div>
@@ -53,21 +53,21 @@ const InstallGuide = () => {
           return (
             <div
               key={index}
-              className="relative bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 flex flex-col justify-between"
+              className="relative bg-white border border-zinc-200 rounded-2xl p-6 hover:shadow-lg hover:border-zinc-300 transition-all duration-300 flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-3xl font-black text-blue-500/40">
+                  <span className="text-4xl font-black text-zinc-100">
                     {item.step}
                   </span>
-                  <div className="p-3 bg-zinc-800/80 text-blue-400 rounded-xl border border-zinc-700/50">
+                  <div className="p-3 bg-zinc-50 text-zinc-600 rounded-xl border border-zinc-200">
                     <Icon className="text-lg" />
                   </div>
                 </div>
-                <h4 className="text-lg font-bold text-white mb-2">
+                <h4 className="text-lg font-bold text-zinc-900 mb-2">
                   {item.title}
                 </h4>
-                <p className="text-sm text-zinc-400 leading-relaxed">
+                <p className="text-sm text-zinc-500 leading-relaxed">
                   {item.description}
                 </p>
               </div>

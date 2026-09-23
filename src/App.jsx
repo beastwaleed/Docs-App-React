@@ -8,7 +8,7 @@ import { FaTimes } from "react-icons/fa";
 
 const App = () => {
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-white text-zinc-900 font-sans selection:bg-blue-100 selection:text-blue-900">
       {/* Top Navbar */}
       <Navbar />
 
