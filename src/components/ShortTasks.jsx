@@ -49,8 +49,7 @@ const ShortTasks = ({ tasks, onAdd, onEdit, onDelete, onStart, onComplete }) => 
       ) : (
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"
-          style={{ scrollbarWidth: "thin" }}
+          className="flex gap-3 overflow-x-auto pb-4 smooth-scroll custom-scrollbar"
         >
           {/* Pending Tasks */}
           {pendingTasks.map((task) => (
