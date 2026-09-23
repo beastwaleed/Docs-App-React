@@ -1,204 +1,401 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { ThemeProvider } from "./components/ThemeContext";
 import Background from "./components/Background";
-import Foreground from "./components/Foreground";
-import { FaTimes } from "react-icons/fa";
+import SearchBar from "./components/SearchBar";
+import ShortTasks from "./components/ShortTasks";
+import ShortTaskForm from "./components/ShortTaskForm";
+import LongTermGoals from "./components/LongTermGoals";
+import GoalForm from "./components/GoalForm";
+import SubtaskForm from "./components/SubtaskForm";
+import FocusTimer from "./components/FocusTimer";
+import ThemeSelector from "./components/ThemeSelector";
 
-const PRESET_CARDS = [
-  {
-    id: "preset-1",
-    description:
-      "🚀 Welcome to your New Tab Dashboard! Drag this card anywhere on your screen.",
-    complexity: "Low",
-    status: "Completed",
-  },
-  {
-    id: "preset-2",
-    description:
-      "💡 Double-click anywhere or click '+ Add Task' near the Google Search bar to create new tasks.",
-    complexity: "Medium",
-    status: "Pending",
-  },
-  {
-    id: "preset-3",
-    description:
-      "🔍 Search the web instantly with real-time Google suggestions using the central Search bar.",
-    complexity: "High",
-    status: "Pending",
-  },
-];
+// Completion sound (short pleasant chime via Web Audio API)
+const playCompletionSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const playTone = (freq, startTime, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+    const now = ctx.currentTime;
+    playTone(523.25, now, 0.15);       // C5
+    playTone(659.25, now + 0.12, 0.15); // E5
+    playTone(783.99, now + 0.24, 0.25); // G5
+  } catch (e) {
+    console.log("Audio not available");
+  }
+};
 
 const ExtensionApp = () => {
-  // Load cards from localStorage
-  const [cards, setCards] = useState(() => {
+  // ─── Short Tasks State ─────────────────────────────────────
+  const [shortTasks, setShortTasks] = useState(() => {
     try {
-      const saved = localStorage.getItem("docs_app_cards");
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load cards from localStorage", e);
-    }
-    return PRESET_CARDS;
+      const saved = localStorage.getItem("taskboard_short_tasks");
+      if (saved) { const parsed = JSON.parse(saved); if (Array.isArray(parsed)) return parsed; }
+    } catch (e) {}
+    return [];
   });
 
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    description: "",
-    complexity: "Medium",
-    status: "Pending",
-  });
+  const [showShortTaskForm, setShowShortTaskForm] = useState(false);
+  const [editingShortTask, setEditingShortTask] = useState(null);
 
-  // Save cards to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem("docs_app_cards", JSON.stringify(cards));
-    } catch (e) {
-      console.error("Failed to save cards to localStorage", e);
-    }
-  }, [cards]);
+    try { localStorage.setItem("taskboard_short_tasks", JSON.stringify(shortTasks)); } catch (e) {}
+  }, [shortTasks]);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.description.trim()) return;
-
-    const newCard = {
-      id: Date.now().toString(),
-      description: formData.description.trim(),
-      complexity: formData.complexity || "Medium",
-      status: formData.status || "Pending",
+  // Sync short tasks across tabs
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === "taskboard_short_tasks" && e.newValue) {
+        try { setShortTasks(JSON.parse(e.newValue)); } catch (err) {}
+      }
     };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
-    setCards((prev) => [newCard, ...prev]);
-    setFormData({ description: "", complexity: "Medium", status: "Pending" });
-    setShowForm(false);
+  // ─── Long-Term Goals State ─────────────────────────────────
+  const [goals, setGoals] = useState(() => {
+    try {
+      const saved = localStorage.getItem("taskboard_goals");
+      if (saved) { const parsed = JSON.parse(saved); if (Array.isArray(parsed)) return parsed; }
+    } catch (e) {}
+    return [];
+  });
+
+  const [showGoalForm, setShowGoalForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState(null);
+  const [showSubtaskForm, setShowSubtaskForm] = useState(false);
+  const [editingSubtask, setEditingSubtask] = useState(null);
+  const [subtaskGoalId, setSubtaskGoalId] = useState(null);
+
+  useEffect(() => {
+    try { localStorage.setItem("taskboard_goals", JSON.stringify(goals)); } catch (e) {}
+  }, [goals]);
+
+  // Sync goals across tabs
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === "taskboard_goals" && e.newValue) {
+        try { setGoals(JSON.parse(e.newValue)); } catch (err) {}
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  // ─── Focus Mode State ──────────────────────────────────────
+  const [focusState, setFocusState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("taskboard_focus_state");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      isActive: false,
+      taskId: null,
+      taskTitle: "",
+      taskType: null, // "short" | "subtask"
+      goalId: null,
+      startedAt: null,
+      pausedAt: null,
+      totalPausedMs: 0,
+      estimatedTime: null,
+    };
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("taskboard_focus_state", JSON.stringify(focusState)); } catch (e) {}
+  }, [focusState]);
+
+  // Sync focus state across tabs
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === "taskboard_focus_state" && e.newValue) {
+        try { setFocusState(JSON.parse(e.newValue)); } catch (err) {}
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  // ─── Short Task Handlers ──────────────────────────────────
+  const handleAddShortTask = (data) => {
+    const newTask = { id: Date.now().toString(), ...data, status: "Pending", createdAt: Date.now() };
+    setShortTasks((prev) => [...prev, newTask]);
+    setShowShortTaskForm(false);
   };
 
-  const toggleStatus = (id) => {
-    setCards((prevCards) =>
-      prevCards.map((card) =>
-        card.id === id
-          ? {
-              ...card,
-              status: card.status === "Completed" ? "Pending" : "Completed",
-            }
-          : card
+  const handleEditShortTask = (data) => {
+    setShortTasks((prev) =>
+      prev.map((t) => (t.id === editingShortTask.id ? { ...t, ...data } : t))
+    );
+    setEditingShortTask(null);
+    setShowShortTaskForm(false);
+  };
+
+  const handleDeleteShortTask = (id) => {
+    setShortTasks((prev) => prev.filter((t) => t.id !== id));
+    if (focusState.isActive && focusState.taskId === id) {
+      handleFocusCancel();
+    }
+  };
+
+  const handleCompleteShortTask = useCallback((id) => {
+    setShortTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, status: t.status === "Completed" ? "Pending" : "Completed" }
+          : t
       )
     );
+    const task = shortTasks.find((t) => t.id === id);
+    if (task && task.status !== "Completed") playCompletionSound();
+    if (focusState.isActive && focusState.taskId === id) {
+      handleFocusCancel();
+    }
+  }, [shortTasks, focusState]);
+
+  const handleStartShortTask = (id) => {
+    const task = shortTasks.find((t) => t.id === id);
+    if (!task) return;
+    setFocusState({
+      isActive: true,
+      taskId: id,
+      taskTitle: task.title,
+      taskType: "short",
+      goalId: null,
+      startedAt: Date.now(),
+      pausedAt: null,
+      totalPausedMs: 0,
+      estimatedTime: task.estimatedTime,
+    });
   };
 
-  const deleteCard = (id) => {
-    setCards((prevCards) => prevCards.filter((card) => card.id !== id));
+  // ─── Long-Term Goal Handlers ──────────────────────────────
+  const handleAddGoal = (data) => {
+    const newGoal = { id: Date.now().toString(), ...data, subtasks: [], createdAt: Date.now() };
+    setGoals((prev) => [...prev, newGoal]);
+    setShowGoalForm(false);
+  };
+
+  const handleEditGoal = (data) => {
+    setGoals((prev) =>
+      prev.map((g) => (g.id === editingGoal.id ? { ...g, ...data } : g))
+    );
+    setEditingGoal(null);
+    setShowGoalForm(false);
+  };
+
+  const handleDeleteGoal = (id) => {
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    if (focusState.isActive && focusState.goalId === id) {
+      handleFocusCancel();
+    }
+  };
+
+  const handleAddSubtask = (data) => {
+    const newSubtask = { id: Date.now().toString(), ...data, status: "Pending" };
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === subtaskGoalId
+          ? { ...g, subtasks: [...g.subtasks, newSubtask] }
+          : g
+      )
+    );
+    setShowSubtaskForm(false);
+    setSubtaskGoalId(null);
+  };
+
+  const handleEditSubtask = (data) => {
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === subtaskGoalId
+          ? {
+              ...g,
+              subtasks: g.subtasks.map((s) =>
+                s.id === editingSubtask.id ? { ...s, ...data } : s
+              ),
+            }
+          : g
+      )
+    );
+    setEditingSubtask(null);
+    setShowSubtaskForm(false);
+    setSubtaskGoalId(null);
+  };
+
+  const handleDeleteSubtask = (goalId, subtaskId) => {
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === goalId
+          ? { ...g, subtasks: g.subtasks.filter((s) => s.id !== subtaskId) }
+          : g
+      )
+    );
+    if (focusState.isActive && focusState.taskId === subtaskId) {
+      handleFocusCancel();
+    }
+  };
+
+  const handleCompleteSubtask = useCallback((goalId, subtaskId) => {
+    let wasCompleted = false;
+    setGoals((prev) =>
+      prev.map((g) => {
+        if (g.id !== goalId) return g;
+        return {
+          ...g,
+          subtasks: g.subtasks.map((s) => {
+            if (s.id !== subtaskId) return s;
+            wasCompleted = s.status === "Completed";
+            return { ...s, status: s.status === "Completed" ? "Pending" : "Completed" };
+          }),
+        };
+      })
+    );
+    if (!wasCompleted) playCompletionSound();
+    if (focusState.isActive && focusState.taskId === subtaskId) {
+      handleFocusCancel();
+    }
+  }, [focusState]);
+
+  const handleStartSubtask = (goalId, subtaskId) => {
+    const goal = goals.find((g) => g.id === goalId);
+    const subtask = goal?.subtasks.find((s) => s.id === subtaskId);
+    if (!subtask) return;
+    setFocusState({
+      isActive: true,
+      taskId: subtaskId,
+      taskTitle: subtask.title,
+      taskType: "subtask",
+      goalId: goalId,
+      startedAt: Date.now(),
+      pausedAt: null,
+      totalPausedMs: 0,
+      estimatedTime: subtask.estimatedTime,
+    });
+  };
+
+  // ─── Focus Timer Handlers ─────────────────────────────────
+  const handleFocusPause = () => {
+    setFocusState((prev) => ({ ...prev, pausedAt: Date.now() }));
+  };
+
+  const handleFocusResume = () => {
+    setFocusState((prev) => {
+      const pauseDuration = prev.pausedAt ? Date.now() - prev.pausedAt : 0;
+      return { ...prev, pausedAt: null, totalPausedMs: prev.totalPausedMs + pauseDuration };
+    });
+  };
+
+  const handleFocusComplete = () => {
+    if (focusState.taskType === "short") {
+      handleCompleteShortTask(focusState.taskId);
+    } else if (focusState.taskType === "subtask") {
+      handleCompleteSubtask(focusState.goalId, focusState.taskId);
+    }
+    // playCompletionSound is called inside handleComplete...
+  };
+
+  const handleFocusCancel = () => {
+    setFocusState({ isActive: false, taskId: null, taskTitle: "", taskType: null, goalId: null, startedAt: null, pausedAt: null, totalPausedMs: 0, estimatedTime: null });
   };
 
   return (
-    <div
-      onDoubleClick={() => setShowForm(true)}
-      className="fixed inset-0 w-screen h-screen overflow-hidden bg-black select-none z-[999]"
-    >
-      <Background />
-      <Foreground
-        cards={cards}
-        toggleStatus={toggleStatus}
-        deleteCard={deleteCard}
-        onOpenForm={() => setShowForm(true)}
-      />
+    <ThemeProvider>
+      <div className="fixed inset-0 w-screen h-screen overflow-y-auto overflow-x-hidden bg-black z-[999]">
+        <Background />
 
-      {/* Task Creation Form Modal Component */}
-      {showForm && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-[1000] p-4"
-          onDoubleClick={(e) => e.stopPropagation()}
-        >
-          <div className="bg-zinc-900 border border-zinc-800 text-white p-6 rounded-2xl shadow-2xl space-y-5 w-full max-w-md animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <span>📝</span> Add New Task
-              </h2>
-              <button
-                onClick={() => setShowForm(false)}
-                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition-colors"
-              >
-                <FaTimes size="1.1em" />
-              </button>
-            </div>
+        {/* Scrollable Content */}
+        <div className="relative z-10 min-h-screen flex flex-col items-center py-10 space-y-8">
+          {/* Search Bar & Clock */}
+          <div className="w-full pt-4">
+            <SearchBar />
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
-                  Task Description
-                </label>
-                <textarea
-                  name="description"
-                  placeholder="Enter task details..."
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700/80 p-3 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm resize-none"
-                  required
-                  autoFocus
-                />
-              </div>
+          {/* Short-Term Tasks */}
+          <ShortTasks
+            tasks={shortTasks}
+            onAdd={() => { setEditingShortTask(null); setShowShortTaskForm(true); }}
+            onEdit={(task) => { setEditingShortTask(task); setShowShortTaskForm(true); }}
+            onDelete={handleDeleteShortTask}
+            onStart={handleStartShortTask}
+            onComplete={handleCompleteShortTask}
+          />
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
-                    Complexity
-                  </label>
-                  <select
-                    name="complexity"
-                    value={formData.complexity}
-                    onChange={handleChange}
-                    className="w-full bg-zinc-800 border border-zinc-700/80 p-2.5 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
+          {/* Long-Term Goals */}
+          <LongTermGoals
+            goals={goals}
+            onAddGoal={() => { setEditingGoal(null); setShowGoalForm(true); }}
+            onEditGoal={(goal) => { setEditingGoal(goal); setShowGoalForm(true); }}
+            onDeleteGoal={handleDeleteGoal}
+            onAddSubtask={(goalId) => { setSubtaskGoalId(goalId); setEditingSubtask(null); setShowSubtaskForm(true); }}
+            onEditSubtask={(goalId, subtask) => { setSubtaskGoalId(goalId); setEditingSubtask(subtask); setShowSubtaskForm(true); }}
+            onDeleteSubtask={handleDeleteSubtask}
+            onCompleteSubtask={handleCompleteSubtask}
+            onStartSubtask={handleStartSubtask}
+          />
 
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="w-full bg-zinc-800 border border-zinc-700/80 p-2.5 rounded-xl text-white text-sm focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Completed">Completed</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm font-semibold transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-blue-600/30 transition-all active:scale-95"
-                >
-                  Create Task
-                </button>
-              </div>
-            </form>
+          {/* Footer Credit */}
+          <div className="pb-6 text-center">
+            <a
+              href="https://www.linkedin.com/in/digiwaleed"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-medium text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              Built by Waleed
+            </a>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Focus Timer Overlay */}
+        <FocusTimer
+          focusState={focusState}
+          onPause={handleFocusPause}
+          onResume={handleFocusResume}
+          onComplete={handleFocusComplete}
+          onCancel={handleFocusCancel}
+        />
+
+        {/* Theme Selector */}
+        <ThemeSelector />
+
+        {/* ── Modals ──────────────────────────────────── */}
+        {showShortTaskForm && (
+          <ShortTaskForm
+            onSubmit={editingShortTask ? handleEditShortTask : handleAddShortTask}
+            onClose={() => { setShowShortTaskForm(false); setEditingShortTask(null); }}
+            editingTask={editingShortTask}
+          />
+        )}
+
+        {showGoalForm && (
+          <GoalForm
+            onSubmit={editingGoal ? handleEditGoal : handleAddGoal}
+            onClose={() => { setShowGoalForm(false); setEditingGoal(null); }}
+            editingGoal={editingGoal}
+          />
+        )}
+
+        {showSubtaskForm && (
+          <SubtaskForm
+            onSubmit={editingSubtask ? handleEditSubtask : handleAddSubtask}
+            onClose={() => { setShowSubtaskForm(false); setEditingSubtask(null); setSubtaskGoalId(null); }}
+            editingSubtask={editingSubtask}
+          />
+        )}
+      </div>
+    </ThemeProvider>
   );
 };
 
